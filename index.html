@@ -34,13 +34,12 @@ th,td{padding:10px 12px;text-align:left;border-bottom:1px solid var(--border)}
 th{color:var(--muted);font-weight:600;text-transform:uppercase;font-size:.75rem;letter-spacing:.05em}
 td{color:var(--text)}
 .tag{display:inline-block;padding:2px 10px;border-radius:12px;font-size:.75rem;font-weight:600}
-.tag-correct{background:#22c55e22;color:var(--green)}
-.tag-partial{background:#eab30822;color:var(--yellow)}
-.tag-incorrect{background:#ef444422;color:var(--red)}
-.tag-idk{background:#94a3b822;color:var(--muted)}
+.tag-pasted{background:#3b82f622;color:var(--accent)}
+.tag-too-short{background:#ef444422;color:var(--red)}
+.tag-clean{background:#22c55e22;color:var(--green)}
 .tag-paste{background:#3b82f622;color:var(--accent)}
 .tag-typed{background:#a855f722;color:var(--purple)}
-.response-text{font-size:.85rem;color:var(--text);line-height:1.5;max-width:400px}
+.response-text{font-size:.85rem;color:var(--text);line-height:1.5;max-width:400px;word-break:break-word}
 .keystroke-timeline{display:flex;flex-wrap:wrap;gap:2px;padding:8px 0}
 .key{display:inline-flex;align-items:center;justify-content:center;min-width:22px;height:22px;padding:0 4px;border-radius:4px;font-size:.65rem;font-family:monospace;background:#334155;color:var(--text)}
 .key-backspace{background:#ef444433;color:var(--red)}
@@ -53,8 +52,6 @@ td{color:var(--text)}
 .participant-select button.active{background:var(--accent);color:#fff;border-color:var(--accent)}
 .q-label{font-size:.75rem;color:var(--cyan);font-weight:600;margin-bottom:4px}
 .scroll-x{overflow-x:auto}
-
-/* Upload area */
 #uploadArea{display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:60vh;padding:40px}
 .drop-zone{border:2px dashed var(--border);border-radius:16px;padding:60px 40px;text-align:center;max-width:600px;width:100%;cursor:pointer;transition:all .3s}
 .drop-zone:hover,.drop-zone.dragover{border-color:var(--accent);background:#3b82f610}
@@ -66,20 +63,27 @@ td{color:var(--text)}
 .btn-primary:hover{background:#2563eb}
 .btn-outline{background:transparent;border:1px solid var(--border);color:var(--muted);margin-top:12px}
 .btn-outline:hover{border-color:var(--accent);color:var(--accent)}
+.btn-sm{padding:6px 16px;font-size:.8rem}
 .sample-info{margin-top:24px;padding:16px;background:var(--card);border:1px solid var(--border);border-radius:8px;max-width:600px;width:100%;font-size:.85rem;color:var(--muted)}
 .sample-info h4{color:var(--text);margin-bottom:8px}
 .sample-info code{background:#334155;padding:2px 6px;border-radius:4px;font-size:.8rem}
 #dashboard{display:none}
 .error-msg{color:var(--red);margin-top:12px;font-size:.9rem}
+.id-selector{display:flex;align-items:center;gap:12px;padding:16px;background:var(--card);border:1px solid var(--border);border-radius:8px;margin-bottom:16px}
+.id-selector label{color:var(--muted);font-size:.85rem;font-weight:600}
+.id-selector select{background:var(--bg);color:var(--text);border:1px solid var(--border);border-radius:6px;padding:6px 12px;font-size:.85rem}
+.flag-summary{display:flex;gap:16px;flex-wrap:wrap;margin-bottom:16px}
+.flag-box{background:var(--card);border:1px solid var(--border);border-radius:8px;padding:16px 24px;text-align:center}
+.flag-box .num{font-size:2rem;font-weight:700}
+.flag-box .label{font-size:.8rem;color:var(--muted)}
 </style>
 </head>
 <body>
 <header>
 <h1>AIED Keystroke Analysis Dashboard</h1>
-<p>Upload your Qualtrics survey CSV to visualize keystroke behavior and response quality</p>
+<p>Upload your Qualtrics survey CSV to visualize keystroke behavior and detect potential cheating</p>
 </header>
 
-<!-- Upload Area -->
 <div id="uploadArea">
 <div class="drop-zone" id="dropZone">
 <h2>📁 Upload Your CSV File</h2>
@@ -94,27 +98,21 @@ td{color:var(--text)}
 </div>
 <div class="sample-info">
 <h4>Expected CSV Format (Qualtrics Export)</h4>
-<p>The CSV should contain these columns:</p>
+<p>Only two columns are <strong>required</strong>:</p>
 <ul style="margin:8px 0 0 20px;line-height:1.8">
-<li><code>prolific_id</code> - Participant ID</li>
-<li><code>Duration (in seconds)</code> - Total survey duration</li>
-<li><code>StartDate</code>, <code>EndDate</code> - Session timestamps</li>
-<li><code>TestQ1</code> - Answer to Q1 (intercept interpretation)</li>
-<li><code>TestQ2</code> - Answer to Q2 (slope for income)</li>
-<li><code>TestQ3</code> - Answer to Q3 (slope for temperature)</li>
-<li><code>TestTimer1_*</code> - Timing for Q1+Q2 page</li>
-<li><code>TestTimer2_*</code> - Timing for Q3 page</li>
-<li><code>keystroke_log</code> - JSON keystroke data</li>
+<li><code>keystroke_log</code> - JSON keystroke data (with <code>qid</code>, <code>keypresses</code>, <code>pastes</code>, <code>copies</code>, <code>keystroke_order</code>, <code>text</code>)</li>
+<li>A participant ID column (default: <code>ResponseId</code>; you can select a different one after upload)</li>
 </ul>
-<p style="margin-top:8px">Row 1 = column IDs, Row 2 = labels, Row 3 = Qualtrics import IDs, Rows 4+ = data.</p>
+<p style="margin-top:8px">Everything else (timer columns, answer columns, etc.) is <strong>auto-detected</strong> from the data.</p>
+<p style="margin-top:8px">For Qualtrics CSVs: Row 1 = headers, Row 2 = labels, Row 3 = import IDs (used for QID mapping), Rows 4+ = data.</p>
 </div>
 </div>
 
-<!-- Dashboard (hidden until data loaded) -->
 <div id="dashboard">
+<div id="idSelectorArea" class="container" style="padding-bottom:0"></div>
 <nav>
 <button class="active" onclick="showSection('overview',this)">Overview</button>
-<button onclick="showSection('responses',this)">Response Quality</button>
+<button onclick="showSection('cheaters',this)">Cheater Flagging</button>
 <button onclick="showSection('keystrokes',this)">Keystroke Behavior</button>
 <button onclick="showSection('timing',this)">Timing Analysis</button>
 </nav>
@@ -122,21 +120,28 @@ td{color:var(--text)}
 <div id="overview" class="section active">
 <div class="grid grid-4" style="margin-bottom:24px">
 <div class="card"><h3>Participants</h3><div class="stat" id="statParticipants">0</div></div>
-<div class="card"><h3>Avg Duration</h3><div class="stat" id="avgDuration">0</div><div class="stat-sm">seconds</div></div>
-<div class="card"><h3>Completion Rate</h3><div class="stat" id="statCompletion">0%</div></div>
+<div class="card"><h3>Avg Duration</h3><div class="stat" id="avgDuration">-</div><div class="stat-sm">seconds</div></div>
+<div class="card"><h3>Questions Detected</h3><div class="stat" id="statQuestions">0</div></div>
 <div class="card"><h3>Paste Users</h3><div class="stat" id="pasteUsers">0</div><div class="stat-sm" id="pasteTotal">of 0 participants</div></div>
 </div>
 <div class="grid grid-2">
-<div class="card"><h3>Time Spent per Question per Participant</h3><div class="chart-container"><canvas id="timePerQ"></canvas></div></div>
-<div class="card"><h3>Keypresses vs Time (Paste Detection)</h3><div class="chart-container"><canvas id="keypressVsTime"></canvas></div></div>
+<div class="card"><h3>Keypresses per Question per Participant</h3><div class="chart-container"><canvas id="keypressPerQ"></canvas></div></div>
+<div class="card"><h3>Keypresses vs Text Length (Paste Detection)</h3><div class="chart-container"><canvas id="keypressVsLen"></canvas></div></div>
+</div>
+<div class="card" style="margin-top:20px"><h3>All Responses</h3>
+<div class="scroll-x"><table id="responseTable"><thead></thead><tbody></tbody></table></div>
 </div>
 </div>
 
-<div id="responses" class="section">
-<div class="card" style="margin-bottom:20px"><h3>Response Quality Legend</h3>
-<span class="tag tag-correct">Correct</span> <span class="tag tag-partial">Partial</span> <span class="tag tag-incorrect">Incorrect</span> <span class="tag tag-idk">I Don't Know</span> <span class="tag tag-paste">Paste</span> <span class="tag tag-typed">Typed</span>
+<div id="cheaters" class="section">
+<div class="flag-summary" id="flagSummary"></div>
+<div class="card" style="margin-bottom:16px">
+<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
+<h3 style="margin:0">Flagged Participants</h3>
+<button class="btn btn-primary btn-sm" onclick="exportFlagged()">📥 Export Flagged CSV</button>
 </div>
-<div class="card scroll-x"><h3>All Responses</h3><table id="responseTable"><thead><tr><th>ID</th><th>Q1: Intercept = 112.6</th><th>Q1 Quality</th><th>Q2: Slope for Income = -1.1</th><th>Q2 Quality</th><th>Q3: Slope for Temp = 1.18</th><th>Q3 Quality</th><th>Method</th></tr></thead><tbody></tbody></table></div>
+<div class="scroll-x"><table id="flagTable"><thead></thead><tbody></tbody></table></div>
+</div>
 </div>
 
 <div id="keystrokes" class="section">
@@ -148,9 +153,8 @@ td{color:var(--text)}
 <div id="timing" class="section">
 <div class="grid grid-2">
 <div class="card"><h3>Total Survey Duration</h3><div class="chart-container"><canvas id="durationChart"></canvas></div></div>
-<div class="card"><h3>Per-Question Time (Page Submit)</h3><div class="chart-container"><canvas id="perQTime"></canvas></div></div>
+<div class="card"><h3>Per-Question Timer (Auto-detected)</h3><div class="chart-container"><canvas id="perQTime"></canvas></div></div>
 </div>
-<div class="card" style="margin-top:20px"><h3>Session Timeline</h3><div class="chart-container"><canvas id="timeline"></canvas></div></div>
 </div>
 </div>
 </div>
@@ -158,11 +162,10 @@ td{color:var(--text)}
 <script>
 const COLORS=['#3b82f6','#22c55e','#ef4444','#eab308','#a855f7','#06b6d4','#f97316','#ec4899','#14b8a6','#8b5cf6','#f43f5e','#84cc16'];
 let charts=[];
+let PARSED={};  // global state for re-render on ID change
 
-// --- File Upload ---
 const dropZone=document.getElementById('dropZone');
 const fileInput=document.getElementById('fileInput');
-
 dropZone.addEventListener('dragover',e=>{e.preventDefault();dropZone.classList.add('dragover')});
 dropZone.addEventListener('dragleave',()=>dropZone.classList.remove('dragover'));
 dropZone.addEventListener('drop',e=>{e.preventDefault();dropZone.classList.remove('dragover');handleFile(e.dataTransfer.files[0])});
@@ -177,6 +180,7 @@ function handleFile(file){
 }
 
 function showError(msg){document.getElementById('errorMsg').textContent=msg}
+function esc(s){const d=document.createElement('div');d.textContent=s;return d.innerHTML}
 
 function parseCSV(text){
   try{
@@ -184,199 +188,266 @@ function parseCSV(text){
     const rows=result.data;
     if(rows.length<4){showError('CSV needs at least 4 rows (header + labels + import IDs + data)');return}
 
-    // Row 0 = headers, Row 1 = labels, Row 2 = import IDs, Rows 3+ = data
     const headers=rows[0];
+    const labelRow=rows[1];
+    const importRow=rows[2];
     const dataRows=rows.slice(3);
 
-    // Find column indices
-    const col=name=>headers.indexOf(name);
-    const ci={
-      id:col('prolific_id'),
-      start:col('StartDate'),
-      end:col('EndDate'),
-      duration:col('Duration (in seconds)'),
-      finished:col('Finished'),
-      q1:col('TestQ1'),
-      q2:col('TestQ2'),
-      q3:col('TestQ3'),
-      t1fc:col('TestTimer1_First Click'),
-      t1lc:col('TestTimer1_Last Click'),
-      t1ps:col('TestTimer1_Page Submit'),
-      t1cc:col('TestTimer1_Click Count'),
-      t2fc:col('TestTimer2_First Click'),
-      t2lc:col('TestTimer2_Last Click'),
-      t2ps:col('TestTimer2_Page Submit'),
-      t2cc:col('TestTimer2_Click Count'),
-      ks:col('keystroke_log')
-    };
+    // Find keystroke_log column
+    const ksIdx=headers.indexOf('keystroke_log');
+    if(ksIdx===-1){showError('Missing required column: keystroke_log');return}
 
-    // Validate required columns
-    const missing=[];
-    if(ci.id===-1)missing.push('prolific_id');
-    if(ci.q1===-1)missing.push('TestQ1');
-    if(ci.ks===-1)missing.push('keystroke_log');
-    if(missing.length){showError('Missing columns: '+missing.join(', '));return}
-
-    const DATA=dataRows.map(r=>{
-      let ks=[];
+    // Build QID-to-column mapping from import IDs row
+    const qidToCol={};
+    headers.forEach((h,i)=>{
       try{
-        const raw=JSON.parse(r[ci.ks]);
-        ks=(raw.data||[]).map(k=>({
+        const imp=JSON.parse(importRow[i]);
+        if(imp&&imp.ImportId){
+          const m=imp.ImportId.match(/QID\d+/);
+          if(m)qidToCol[m[0]]=h;
+        }
+      }catch(e){}
+    });
+
+    // Detect ID column
+    const ID_CANDIDATES=['ResponseId','prolific_id','PROLIFIC_PID','participant_id','ParticipantId','SubjectID'];
+    let defaultIdCol=headers[0];
+    for(const c of ID_CANDIDATES){if(headers.includes(c)){defaultIdCol=c;break}}
+
+    // Find duration column
+    const durIdx=headers.indexOf('Duration (in seconds)');
+
+    // Find timer columns (any column ending in _Page Submit, _First Click, etc.)
+    const timerGroups={};
+    headers.forEach((h,i)=>{
+      const m=h.match(/^(.+)_(First Click|Last Click|Page Submit|Click Count)$/);
+      if(m){
+        const base=m[1];
+        if(!timerGroups[base])timerGroups[base]={};
+        timerGroups[base][m[2]]=i;
+      }
+    });
+
+    PARSED={headers,labelRow,importRow,dataRows,ksIdx,qidToCol,defaultIdCol,durIdx,timerGroups};
+    showIdSelector();
+    renderWithId(defaultIdCol);
+  }catch(e){showError('Error parsing CSV: '+e.message)}
+}
+
+function showIdSelector(){
+  const area=document.getElementById('idSelectorArea');
+  const sel=document.createElement('select');
+  sel.id='idColSelect';
+  PARSED.headers.forEach(h=>{
+    const o=document.createElement('option');
+    o.value=h;o.textContent=h;
+    if(h===PARSED.defaultIdCol)o.selected=true;
+    sel.appendChild(o);
+  });
+  sel.onchange=()=>renderWithId(sel.value);
+  area.innerHTML='';
+  const div=document.createElement('div');
+  div.className='id-selector';
+  div.innerHTML='<label>Participant ID Column:</label>';
+  div.appendChild(sel);
+  area.appendChild(div);
+}
+
+function renderWithId(idCol){
+  const {headers,dataRows,ksIdx,qidToCol,durIdx,timerGroups}=PARSED;
+  const idIdx=headers.indexOf(idCol);
+
+  // Parse all data
+  const allQids=new Set();
+  const DATA=dataRows.map(r=>{
+    let ks=[];
+    try{
+      const raw=JSON.parse(r[ksIdx]);
+      ks=(raw.data||[]).map(k=>{
+        allQids.add(k.qid);
+        return{
           qid:k.qid,
           keypresses:k.keypresses||0,
           pastes:k.pastes||0,
           copies:k.copies||0,
-          order:k.keystroke_order||[]
-        }));
-      }catch(e){}
+          order:k.keystroke_order||[],
+          text:k.text||''
+        };
+      });
+    }catch(e){}
+    return{
+      id:r[idIdx]||'?',
+      duration:durIdx>=0?parseFloat(r[durIdx])||0:0,
+      row:r,
+      ks
+    };
+  }).filter(d=>d.id&&d.id!=='?'&&d.ks.length>0);
 
-      return{
-        id:r[ci.id]||'?',
-        start:r[ci.start]||'',
-        end:r[ci.end]||'',
-        duration:parseFloat(r[ci.duration])||0,
-        finished:r[ci.finished]==='1',
-        q1:r[ci.q1]||'',
-        q2:r[ci.q2]||'',
-        q3:r[ci.q3]||'',
-        t1:{fc:parseFloat(r[ci.t1fc])||0,lc:parseFloat(r[ci.t1lc])||0,ps:parseFloat(r[ci.t1ps])||0,cc:parseInt(r[ci.t1cc])||0},
-        t2:{fc:parseFloat(r[ci.t2fc])||0,lc:parseFloat(r[ci.t2lc])||0,ps:parseFloat(r[ci.t2ps])||0,cc:parseInt(r[ci.t2cc])||0},
-        ks
-      };
-    }).filter(d=>d.id&&d.id!=='?');
+  if(!DATA.length){showError('No valid data rows found with keystroke_log');return}
 
-    if(!DATA.length){showError('No valid data rows found');return}
+  // Build ordered question list with labels
+  const qidList=[...allQids];
+  const qLabels={};
+  qidList.forEach(qid=>{
+    const col=qidToCol[qid];
+    qLabels[qid]=col||qid;
+  });
 
-    renderDashboard(DATA);
-  }catch(e){showError('Error parsing CSV: '+e.message)}
+  // Detect cheater flags
+  DATA.forEach(d=>{
+    d.flags=[];
+    d.flagDetails={};
+    d.ks.forEach(k=>{
+      const textLen=(k.text||'').length;
+      if(k.pastes>0){
+        d.flags.push('pasted');
+        if(!d.flagDetails.pasted)d.flagDetails.pasted=[];
+        d.flagDetails.pasted.push(qLabels[k.qid]);
+      }
+      if(textLen>k.keypresses&&textLen>0){
+        d.flags.push('too_short');
+        if(!d.flagDetails.too_short)d.flagDetails.too_short=[];
+        d.flagDetails.too_short.push(qLabels[k.qid]);
+      }
+    });
+    d.flags=[...new Set(d.flags)];
+    d.isFlagged=d.flags.length>0;
+  });
+
+  PARSED.DATA=DATA;
+  PARSED.qidList=qidList;
+  PARSED.qLabels=qLabels;
+
+  renderDashboard(DATA,qidList,qLabels);
 }
 
-// --- Auto-classify response quality ---
-function classifyQ1(text){
-  const t=text.toLowerCase();
-  if(t.includes("don't know")||t.includes("idk")||t.includes("not sure"))return"idk";
-  // Correct: when income=0, predicted murder rate = 112.6
-  if((t.includes("income")&&t.includes("0")&&t.includes("112"))|| (t.includes("predicted")&&t.includes("112")))return"correct";
-  if(t.includes("112")||t.includes("intercept"))return"partial";
-  return"incorrect";
-}
-function classifyQ2(text){
-  const t=text.toLowerCase();
-  if(t.includes("don't know")||t.includes("idk")||t.includes("not sure"))return"idk";
-  // Correct: for each $1000 increase in income, murder rate decreases by 1.1
-  if(t.includes("decrease")&&t.includes("1.1")&&(t.includes("income")||t.includes("1000")||t.includes("1,000")))return"correct";
-  if(t.includes("1.1")&&(t.includes("down")||t.includes("decrease")||t.includes("drop")))return"partial";
-  if(t.includes("decrease")||t.includes("down")||t.includes("1.1"))return"partial";
-  return"incorrect";
-}
-function classifyQ3(text){
-  const t=text.toLowerCase();
-  if(t.includes("don't know")||t.includes("idk")||t.includes("not sure"))return"idk";
-  if(t.includes("1.18")&&(t.includes("increase")||t.includes("up")||t.includes("goes up")))return"correct";
-  if(t.includes("positive")&&t.includes("correlat"))return"partial";
-  if(t.includes("1.18")||t.includes("increase"))return"partial";
-  return"incorrect";
-}
-
-// --- Render ---
-function renderDashboard(DATA){
-  // Destroy old charts
+function renderDashboard(DATA,qidList,qLabels){
   charts.forEach(c=>c.destroy());charts=[];
-
   document.getElementById('uploadArea').style.display='none';
   document.getElementById('dashboard').style.display='block';
 
-  // Stats
   const n=DATA.length;
   document.getElementById('statParticipants').textContent=n;
-  const avgDur=Math.round(DATA.reduce((s,d)=>s+d.duration,0)/n);
-  document.getElementById('avgDuration').textContent=avgDur;
-  const finishedCount=DATA.filter(d=>d.finished).length;
-  document.getElementById('statCompletion').textContent=Math.round(finishedCount/n*100)+'%';
+  const hasDuration=DATA.some(d=>d.duration>0);
+  document.getElementById('avgDuration').textContent=hasDuration?Math.round(DATA.reduce((s,d)=>s+d.duration,0)/n):'-';
+  document.getElementById('statQuestions').textContent=qidList.length;
   const pasteCount=DATA.filter(d=>d.ks.some(k=>k.pastes>0)).length;
   document.getElementById('pasteUsers').textContent=pasteCount;
   document.getElementById('pasteTotal').textContent=`of ${n} participants`;
 
-  // Quality classification
-  const QUALITY={};
-  DATA.forEach(d=>{QUALITY[d.id]={q1:classifyQ1(d.q1),q2:classifyQ2(d.q2),q3:classifyQ3(d.q3)}});
+  // Keypresses per Q chart
+  const datasets=qidList.map((qid,qi)=>({
+    label:qLabels[qid],
+    data:DATA.map(d=>{const k=d.ks.find(k=>k.qid===qid);return k?k.keypresses:0}),
+    backgroundColor:COLORS[qi%COLORS.length]+'aa'
+  }));
+  charts.push(new Chart(document.getElementById('keypressPerQ'),{type:'bar',data:{labels:DATA.map(d=>d.id),datasets},options:{responsive:true,maintainAspectRatio:false,scales:{x:{ticks:{color:'#94a3b8'}},y:{title:{display:true,text:'Keypresses',color:'#94a3b8'},ticks:{color:'#94a3b8'}}},plugins:{legend:{labels:{color:'#e2e8f0'}}}}}));
 
-  // Time per Q chart
-  charts.push(new Chart(document.getElementById('timePerQ'),{type:'bar',data:{labels:DATA.map(d=>d.id),datasets:[
-    {label:'Q1+Q2 (Page Submit)',data:DATA.map(d=>d.t1.ps),backgroundColor:'#3b82f6aa'},
-    {label:'Q3 (Page Submit)',data:DATA.map(d=>d.t2.ps),backgroundColor:'#22c55eaa'}
-  ]},options:{responsive:true,maintainAspectRatio:false,scales:{x:{ticks:{color:'#94a3b8'}},y:{title:{display:true,text:'Seconds',color:'#94a3b8'},ticks:{color:'#94a3b8'}}},plugins:{legend:{labels:{color:'#e2e8f0'}}}}}));
-
-  // Scatter
-  const scatterData=[];
+  // Scatter: keypresses vs text length
+  const scatterTyped=[],scatterPaste=[];
   DATA.forEach(d=>{d.ks.forEach(k=>{
-    const time=k.qid==='QID11'?d.t2.ps:d.t1.ps;
-    scatterData.push({x:time,y:k.keypresses,label:d.id,paste:k.pastes>0});
+    const pt={x:(k.text||'').length,y:k.keypresses,label:d.id+' / '+qLabels[k.qid]};
+    if(k.pastes>0)scatterPaste.push(pt);else scatterTyped.push(pt);
   })});
-  charts.push(new Chart(document.getElementById('keypressVsTime'),{type:'scatter',data:{datasets:[
-    {label:'Typed',data:scatterData.filter(s=>!s.paste),backgroundColor:'#a855f7aa',pointRadius:6},
-    {label:'Pasted',data:scatterData.filter(s=>s.paste),backgroundColor:'#3b82f6aa',pointRadius:8,pointStyle:'triangle'}
-  ]},options:{responsive:true,maintainAspectRatio:false,scales:{x:{title:{display:true,text:'Time (s)',color:'#94a3b8'},ticks:{color:'#94a3b8'}},y:{title:{display:true,text:'Keypresses',color:'#94a3b8'},ticks:{color:'#94a3b8'}}},plugins:{legend:{labels:{color:'#e2e8f0'}}}}}));
+  charts.push(new Chart(document.getElementById('keypressVsLen'),{type:'scatter',data:{datasets:[
+    {label:'Typed',data:scatterTyped,backgroundColor:'#a855f7aa',pointRadius:6},
+    {label:'Pasted',data:scatterPaste,backgroundColor:'#3b82f6aa',pointRadius:8,pointStyle:'triangle'}
+  ]},options:{responsive:true,maintainAspectRatio:false,scales:{x:{title:{display:true,text:'Text Length (chars)',color:'#94a3b8'},ticks:{color:'#94a3b8'}},y:{title:{display:true,text:'Keypresses',color:'#94a3b8'},ticks:{color:'#94a3b8'}}},plugins:{legend:{labels:{color:'#e2e8f0'}},tooltip:{callbacks:{label:ctx=>ctx.raw.label+` (${ctx.raw.x} chars, ${ctx.raw.y} keys)`}}}}}));
 
-  // Response table
+  // Response table (dynamic)
+  const thead=document.querySelector('#responseTable thead');
   const tbody=document.querySelector('#responseTable tbody');
+  let hrow='<tr><th>ID</th>';
+  qidList.forEach(qid=>{hrow+=`<th>${esc(qLabels[qid])}</th>`});
+  hrow+='<th>Flags</th></tr>';
+  thead.innerHTML=hrow;
   tbody.innerHTML='';
   DATA.forEach(d=>{
-    const q=QUALITY[d.id];
-    const hasPaste=d.ks.some(k=>k.pastes>0);
     const tr=document.createElement('tr');
-    tr.innerHTML=`<td><strong>${esc(d.id)}</strong></td>
-      <td class="response-text">${esc(d.q1)}</td><td><span class="tag tag-${q.q1}">${q.q1}</span></td>
-      <td class="response-text">${esc(d.q2)}</td><td><span class="tag tag-${q.q2}">${q.q2}</span></td>
-      <td class="response-text">${esc(d.q3)}</td><td><span class="tag tag-${q.q3}">${q.q3}</span></td>
-      <td><span class="tag ${hasPaste?'tag-paste':'tag-typed'}">${hasPaste?'Paste':'Typed'}</span></td>`;
+    let html=`<td><strong>${esc(d.id)}</strong></td>`;
+    qidList.forEach(qid=>{
+      const k=d.ks.find(k=>k.qid===qid);
+      html+=`<td class="response-text">${k?esc(k.text):'-'}</td>`;
+    });
+    const flagTags=d.flags.map(f=>`<span class="tag tag-${f==='pasted'?'pasted':'too-short'}">${f}</span>`).join(' ')||'<span class="tag tag-clean">clean</span>';
+    html+=`<td>${flagTags}</td>`;
+    tr.innerHTML=html;
     tbody.appendChild(tr);
   });
 
-  // Keystroke section
+  // Cheater flagging section
+  const flagged=DATA.filter(d=>d.isFlagged);
+  const pastedCount=DATA.filter(d=>d.flags.includes('pasted')).length;
+  const tooShortCount=DATA.filter(d=>d.flags.includes('too_short')).length;
+  document.getElementById('flagSummary').innerHTML=`
+    <div class="flag-box"><div class="num" style="color:var(--red)">${flagged.length}</div><div class="label">Total Flagged</div></div>
+    <div class="flag-box"><div class="num" style="color:var(--accent)">${pastedCount}</div><div class="label">Pasted (pastes > 0)</div></div>
+    <div class="flag-box"><div class="num" style="color:var(--yellow)">${tooShortCount}</div><div class="label">Too Short (chars > keypresses)</div></div>
+    <div class="flag-box"><div class="num" style="color:var(--green)">${n-flagged.length}</div><div class="label">Clean</div></div>
+  `;
+  const fthead=document.querySelector('#flagTable thead');
+  const ftbody=document.querySelector('#flagTable tbody');
+  fthead.innerHTML='<tr><th>ID</th><th>Flags</th><th>Details</th></tr>';
+  ftbody.innerHTML='';
+  flagged.forEach(d=>{
+    const tr=document.createElement('tr');
+    const details=[];
+    if(d.flagDetails.pasted)details.push('Pasted in: '+d.flagDetails.pasted.join(', '));
+    if(d.flagDetails.too_short)details.push('Too short in: '+d.flagDetails.too_short.join(', '));
+    tr.innerHTML=`<td><strong>${esc(d.id)}</strong></td>
+      <td>${d.flags.map(f=>`<span class="tag tag-${f==='pasted'?'pasted':'too-short'}">${f}</span>`).join(' ')}</td>
+      <td style="font-size:.8rem;color:var(--muted)">${esc(details.join('; '))}</td>`;
+    ftbody.appendChild(tr);
+  });
+  if(!flagged.length)ftbody.innerHTML='<tr><td colspan="3" style="text-align:center;color:var(--green)">No flagged participants 🎉</td></tr>';
+
+  // Keystroke detail section
   const pSelect=document.getElementById('pSelect');
   pSelect.innerHTML='';
   DATA.forEach((d,i)=>{
     const btn=document.createElement('button');
     btn.textContent=d.id;
     if(i===0)btn.classList.add('active');
-    btn.onclick=()=>{pSelect.querySelectorAll('button').forEach(b=>b.classList.remove('active'));btn.classList.add('active');showKeystroke(d)};
+    btn.onclick=()=>{pSelect.querySelectorAll('button').forEach(b=>b.classList.remove('active'));btn.classList.add('active');showKeystroke(d,qLabels)};
     pSelect.appendChild(btn);
   });
-  if(DATA.length)showKeystroke(DATA[0]);
+  if(DATA.length)showKeystroke(DATA[0],qLabels);
 
-  // Typing effort
-  charts.push(new Chart(document.getElementById('typingEffort'),{type:'bar',data:{labels:DATA.map(d=>d.id),datasets:[
-    {label:'Q1 Keypresses',data:DATA.map(d=>(d.ks[0]||{}).keypresses||0),backgroundColor:'#3b82f6aa'},
-    {label:'Q2 Keypresses',data:DATA.map(d=>(d.ks[1]||{}).keypresses||0),backgroundColor:'#22c55eaa'},
-    {label:'Q3 Keypresses',data:DATA.map(d=>(d.ks[2]||{}).keypresses||0),backgroundColor:'#eab308aa'}
-  ]},options:{responsive:true,maintainAspectRatio:false,scales:{x:{ticks:{color:'#94a3b8'}},y:{title:{display:true,text:'Keypresses',color:'#94a3b8'},ticks:{color:'#94a3b8'}}},plugins:{legend:{labels:{color:'#e2e8f0'}}}}}));
+  // Typing effort chart
+  const effortDatasets=qidList.map((qid,qi)=>({
+    label:qLabels[qid],
+    data:DATA.map(d=>{const k=d.ks.find(k=>k.qid===qid);return k?k.keypresses:0}),
+    backgroundColor:COLORS[qi%COLORS.length]+'aa'
+  }));
+  charts.push(new Chart(document.getElementById('typingEffort'),{type:'bar',data:{labels:DATA.map(d=>d.id),datasets:effortDatasets},options:{responsive:true,maintainAspectRatio:false,scales:{x:{ticks:{color:'#94a3b8'}},y:{title:{display:true,text:'Keypresses',color:'#94a3b8'},ticks:{color:'#94a3b8'}}},plugins:{legend:{labels:{color:'#e2e8f0'}}}}}));
 
-  // Duration
-  const dColors=DATA.map((_,i)=>COLORS[i%COLORS.length]+'aa');
-  charts.push(new Chart(document.getElementById('durationChart'),{type:'bar',data:{labels:DATA.map(d=>d.id),datasets:[{label:'Duration (s)',data:DATA.map(d=>d.duration),backgroundColor:dColors}]},options:{responsive:true,maintainAspectRatio:false,indexAxis:'y',scales:{x:{title:{display:true,text:'Seconds',color:'#94a3b8'},ticks:{color:'#94a3b8'}},y:{ticks:{color:'#94a3b8'}}},plugins:{legend:{display:false}}}}));
-
-  // Per-Q time
-  charts.push(new Chart(document.getElementById('perQTime'),{type:'bar',data:{labels:DATA.map(d=>d.id),datasets:[
-    {label:'Q1+Q2 Page Submit',data:DATA.map(d=>d.t1.ps),backgroundColor:'#3b82f6aa'},
-    {label:'Q3 Page Submit',data:DATA.map(d=>d.t2.ps),backgroundColor:'#06b6d4aa'}
-  ]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{labels:{color:'#e2e8f0'}}},scales:{x:{ticks:{color:'#94a3b8'}},y:{title:{display:true,text:'Seconds',color:'#94a3b8'},ticks:{color:'#94a3b8'}}}}}));
-
-  // Timeline
-  if(DATA[0].start){
-    const baseTime=new Date(DATA[0].start).getTime();
-    charts.push(new Chart(document.getElementById('timeline'),{type:'bar',data:{labels:DATA.map(d=>d.id),datasets:[{
-      label:'Session',
-      data:DATA.map(d=>{const s=(new Date(d.start).getTime()-baseTime)/1000;return[s,s+d.duration]}),
-      backgroundColor:dColors
-    }]},options:{indexAxis:'y',responsive:true,maintainAspectRatio:false,scales:{x:{title:{display:true,text:'Seconds from first participant',color:'#94a3b8'},ticks:{color:'#94a3b8'}},y:{ticks:{color:'#94a3b8'}}},plugins:{legend:{display:false}}}}));
+  // Timing section
+  if(hasDuration){
+    const dColors=DATA.map((_,i)=>COLORS[i%COLORS.length]+'aa');
+    charts.push(new Chart(document.getElementById('durationChart'),{type:'bar',data:{labels:DATA.map(d=>d.id),datasets:[{label:'Duration (s)',data:DATA.map(d=>d.duration),backgroundColor:dColors}]},options:{responsive:true,maintainAspectRatio:false,indexAxis:'y',scales:{x:{title:{display:true,text:'Seconds',color:'#94a3b8'},ticks:{color:'#94a3b8'}},y:{ticks:{color:'#94a3b8'}}},plugins:{legend:{display:false}}}}));
   }
+
+  // Per-Q timer chart (auto-detected timer groups)
+  const {timerGroups,headers}=PARSED;
+  const timerNames=Object.keys(timerGroups).filter(t=>timerGroups[t]['Page Submit']!==undefined);
+  if(timerNames.length){
+    const timerDatasets=timerNames.map((t,ti)=>({
+      label:t+' (Page Submit)',
+      data:DATA.map(d=>{const idx=timerGroups[t]['Page Submit'];return parseFloat(d.row[idx])||0}),
+      backgroundColor:COLORS[ti%COLORS.length]+'aa'
+    }));
+    charts.push(new Chart(document.getElementById('perQTime'),{type:'bar',data:{labels:DATA.map(d=>d.id),datasets:timerDatasets},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{labels:{color:'#e2e8f0'}}},scales:{x:{ticks:{color:'#94a3b8'}},y:{title:{display:true,text:'Seconds',color:'#94a3b8'},ticks:{color:'#94a3b8'}}}}}));
+  }
+
+  const hasDuration2=DATA.some(d=>d.duration>0);
+  // alias for duration check in chart rendering above
+  var hasDuration=hasDuration2;
 }
 
-function showKeystroke(d){
+function showKeystroke(d,qLabels){
   const detail=document.getElementById('keystrokeDetail');
-  const qLabels=['Q1: Intercept','Q2: Slope (Income)','Q3: Slope (Temp)'];
-  detail.innerHTML=d.ks.map((k,i)=>{
+  detail.innerHTML=d.ks.map(k=>{
+    const label=qLabels[k.qid]||k.qid;
     const timeline=k.order.map(key=>{
       if(key==='Backspace')return`<span class="key key-backspace">⌫</span>`;
       if(key==='paste')return`<span class="key key-paste">📋 PASTE</span>`;
@@ -386,12 +457,41 @@ function showKeystroke(d){
       if(key===' ')return`<span class="key key-space">␣</span>`;
       return`<span class="key">${esc(key)}</span>`;
     }).join('');
+    const textLen=(k.text||'').length;
+    const flags=[];
+    if(k.pastes>0)flags.push('<span class="tag tag-pasted">pasted</span>');
+    if(textLen>k.keypresses&&textLen>0)flags.push('<span class="tag tag-too-short">too_short</span>');
     return`<div class="card" style="margin-bottom:12px">
-      <div class="q-label">${qLabels[i]||'Q'+(i+1)}</div>
-      <h3>${k.keypresses} keypresses | ${k.pastes} pastes | ${k.copies} copies</h3>
+      <div class="q-label">${esc(label)}</div>
+      <h3>${k.keypresses} keypresses | ${k.pastes} pastes | ${k.copies} copies | ${textLen} chars ${flags.join(' ')}</h3>
       <div class="keystroke-timeline">${timeline}</div>
     </div>`;
   }).join('');
+}
+
+function exportFlagged(){
+  const {DATA,qLabels,qidList}=PARSED;
+  const flagged=DATA.filter(d=>d.isFlagged);
+  if(!flagged.length){alert('No flagged participants to export');return}
+  const rows=[['participant_id','flag_type','question','keypresses','text_length','pastes']];
+  flagged.forEach(d=>{
+    d.ks.forEach(k=>{
+      const flags=[];
+      if(k.pastes>0)flags.push('pasted');
+      if((k.text||'').length>k.keypresses&&(k.text||'').length>0)flags.push('too_short');
+      if(flags.length){
+        flags.forEach(f=>{
+          rows.push([d.id,f,qLabels[k.qid]||k.qid,k.keypresses,(k.text||'').length,k.pastes]);
+        });
+      }
+    });
+  });
+  const csv=rows.map(r=>r.map(c=>'"'+String(c).replace(/"/g,'""')+'"').join(',')).join('\n');
+  const blob=new Blob([csv],{type:'text/csv'});
+  const url=URL.createObjectURL(blob);
+  const a=document.createElement('a');
+  a.href=url;a.download='possible_cheaters.csv';a.click();
+  URL.revokeObjectURL(url);
 }
 
 function showSection(id,btn){
@@ -401,9 +501,6 @@ function showSection(id,btn){
   if(btn)btn.classList.add('active');
 }
 
-function esc(s){const d=document.createElement('div');d.textContent=s;return d.innerHTML}
-
-// --- Sample CSV ---
 async function fetchSample(){
   const r=await fetch('sample.csv');
   if(!r.ok)throw new Error('Failed to load sample.csv');
