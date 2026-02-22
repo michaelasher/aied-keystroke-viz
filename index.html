@@ -439,9 +439,6 @@ function renderDashboard(DATA,qidList,qLabels){
     charts.push(new Chart(document.getElementById('perQTime'),{type:'bar',data:{labels:DATA.map(d=>d.id),datasets:timerDatasets},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{labels:{color:'#e2e8f0'}}},scales:{x:{ticks:{color:'#94a3b8'}},y:{title:{display:true,text:'Seconds',color:'#94a3b8'},ticks:{color:'#94a3b8'}}}}}));
   }
 
-  const hasDuration2=DATA.some(d=>d.duration>0);
-  // alias for duration check in chart rendering above
-  var hasDuration=hasDuration2;
 }
 
 function showKeystroke(d,qLabels){
