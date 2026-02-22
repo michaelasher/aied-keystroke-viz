@@ -33,7 +33,8 @@ table{width:100%;border-collapse:collapse;font-size:.85rem}
 th,td{padding:10px 12px;text-align:left;border-bottom:1px solid var(--border)}
 th{color:var(--muted);font-weight:600;text-transform:uppercase;font-size:.75rem;letter-spacing:.05em}
 td{color:var(--text)}
-.tag{display:inline-block;padding:2px 10px;border-radius:12px;font-size:.75rem;font-weight:600}
+.tag{display:inline-block;padding:2px 10px;border-radius:12px;font-size:.75rem;font-weight:600;cursor:default;position:relative}
+.tag[title]:hover::after{content:attr(title);position:absolute;bottom:120%;left:50%;transform:translateX(-50%);background:#1e293b;color:#e2e8f0;padding:6px 10px;border-radius:6px;font-size:.7rem;font-weight:400;white-space:nowrap;z-index:99;border:1px solid #334155;pointer-events:none}
 .tag-pasted{background:#3b82f622;color:var(--accent)}
 .tag-too-short{background:#ef444422;color:var(--red)}
 .tag-clean{background:#22c55e22;color:var(--green)}
@@ -369,7 +370,8 @@ function renderDashboard(DATA,qidList,qLabels){
       const k=d.ks.find(k=>k.qid===qid);
       html+=`<td class="response-text">${k?esc(k.text):'-'}</td>`;
     });
-    const flagTags=d.flags.map(f=>`<span class="tag tag-${f==='pasted'?'pasted':'too-short'}">${f}</span>`).join(' ')||'<span class="tag tag-clean">clean</span>';
+    const flagTips={pasted:'Paste events detected — text may be copied from external sources',too_short:'Text length exceeds total keypresses — likely pasted or auto-filled',clean:'No cheating indicators detected'};
+    const flagTags=d.flags.map(f=>`<span class="tag tag-${f==='pasted'?'pasted':'too-short'}" title="${flagTips[f]||f}">${f}</span>`).join(' ')||`<span class="tag tag-clean" title="${flagTips.clean}">clean</span>`;
     html+=`<td>${flagTags}</td>`;
     tr.innerHTML=html;
     tbody.appendChild(tr);
@@ -395,7 +397,7 @@ function renderDashboard(DATA,qidList,qLabels){
     if(d.flagDetails.pasted)details.push('Pasted in: '+d.flagDetails.pasted.join(', '));
     if(d.flagDetails.too_short)details.push('Too short in: '+d.flagDetails.too_short.join(', '));
     tr.innerHTML=`<td><strong>${esc(d.id)}</strong></td>
-      <td>${d.flags.map(f=>`<span class="tag tag-${f==='pasted'?'pasted':'too-short'}">${f}</span>`).join(' ')}</td>
+      <td>${d.flags.map(f=>`<span class="tag tag-${f==='pasted'?'pasted':'too-short'}" title="${flagTips[f]||f}">${f}</span>`).join(' ')}</td>
       <td style="font-size:.8rem;color:var(--muted)">${esc(details.join('; '))}</td>`;
     ftbody.appendChild(tr);
   });
@@ -456,8 +458,8 @@ function showKeystroke(d,qLabels){
     }).join('');
     const textLen=(k.text||'').length;
     const flags=[];
-    if(k.pastes>0)flags.push('<span class="tag tag-pasted">pasted</span>');
-    if(textLen>k.keypresses&&textLen>0)flags.push('<span class="tag tag-too-short">too_short</span>');
+    if(k.pastes>0)flags.push('<span class="tag tag-pasted" title="Paste events detected — text may be copied from external sources">pasted</span>');
+    if(textLen>k.keypresses&&textLen>0)flags.push('<span class="tag tag-too-short" title="Text length exceeds total keypresses — likely pasted or auto-filled">too_short</span>');
     return`<div class="card" style="margin-bottom:12px">
       <div class="q-label">${esc(label)}</div>
       <h3>${k.keypresses} keypresses | ${k.pastes} pastes | ${k.copies} copies | ${textLen} chars ${flags.join(' ')}</h3>
