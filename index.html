@@ -147,6 +147,10 @@ td{color:var(--text)}
 </div>
 <div class="scroll-x"><table id="flagTable"><thead></thead><tbody></tbody></table></div>
 </div>
+<div class="card">
+<h3 style="margin-bottom:12px">Full Keystroke Report (All Participants × All Questions)</h3>
+<div class="scroll-x"><table id="fullReportTable"><thead></thead><tbody></tbody></table></div>
+</div>
 </div>
 
 <div id="keystrokes" class="section">
@@ -408,6 +412,23 @@ function renderDashboard(DATA,qidList,qLabels){
     ftbody.appendChild(tr);
   });
   if(!flagged.length)ftbody.innerHTML='<tr><td colspan="3" style="text-align:center;color:var(--green)">No flagged participants 🎉</td></tr>';
+
+  // Full report table (matches R script keystroke_question_data)
+  const frthead=document.querySelector('#fullReportTable thead');
+  const frtbody=document.querySelector('#fullReportTable tbody');
+  frthead.innerHTML='<tr><th>ID</th><th>QID</th><th>Question</th><th>Keypresses</th><th>Chars</th><th>Pastes</th><th>Copies</th><th>Pasted</th><th>Too Short</th></tr>';
+  frtbody.innerHTML='';
+  DATA.forEach(d=>{
+    d.ks.forEach(k=>{
+      const textLen=(k.text||'').length;
+      const pasted=k.pastes>0;
+      const tooShort=textLen>k.keypresses&&textLen>0;
+      const tr=document.createElement('tr');
+      if(pasted||tooShort)tr.style.background='rgba(239,68,68,0.08)';
+      tr.innerHTML=`<td><strong>${esc(d.id)}</strong></td><td>${esc(k.qid)}</td><td>${esc(qLabels[k.qid]||k.qid)}</td><td>${k.keypresses}</td><td>${textLen}</td><td>${k.pastes}</td><td>${k.copies}</td><td>${pasted?'<span class="tag tag-pasted">YES</span>':'-'}</td><td>${tooShort?'<span class="tag tag-too-short">YES</span>':'-'}</td>`;
+      frtbody.appendChild(tr);
+    });
+  });
 
   // Keystroke detail section
   const pSelect=document.getElementById('pSelect');
