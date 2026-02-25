@@ -475,19 +475,20 @@ function showKeystroke(d,qLabels){
 }
 
 function exportFlagged(){
-  const {DATA,qLabels,qidList}=PARSED;
+  const {DATA,qLabels}=PARSED;
   const flagged=DATA.filter(d=>d.isFlagged);
   if(!flagged.length){alert('No flagged participants to export');return}
-  const rows=[['participant_id','flag_type','question','keypresses','text_length','pastes']];
+  // Match R script output: participant_id, qid, export_id, keypresses, pastes, copies, keystroke_order, text, actual_char_count, pasted, too_short, n_with_pastes, n_too_short
+  const rows=[['participant_id','qid','export_id','keypresses','pastes','copies','keystroke_order','text','actual_char_count','pasted','too_short','n_with_pastes','n_too_short']];
   flagged.forEach(d=>{
+    const nPastes=d.ks.filter(k=>k.pastes>0).length;
+    const nTooShort=d.ks.filter(k=>(k.text||'').length>k.keypresses&&(k.text||'').length>0).length;
     d.ks.forEach(k=>{
-      const flags=[];
-      if(k.pastes>0)flags.push('pasted');
-      if((k.text||'').length>k.keypresses&&(k.text||'').length>0)flags.push('too_short');
-      if(flags.length){
-        flags.forEach(f=>{
-          rows.push([d.id,f,qLabels[k.qid]||k.qid,k.keypresses,(k.text||'').length,k.pastes]);
-        });
+      const textLen=(k.text||'').length;
+      const pasted=k.pastes>0;
+      const tooShort=textLen>k.keypresses&&textLen>0;
+      if(pasted||tooShort){
+        rows.push([d.id,k.qid,qLabels[k.qid]||k.qid,k.keypresses,k.pastes,k.copies,(k.order||[]).join('-'),k.text||'',textLen,pasted,tooShort,nPastes,nTooShort]);
       }
     });
   });
@@ -507,16 +508,14 @@ function showSection(id,btn){
 }
 
 function exportFullReport(){
-  const {DATA,qLabels,qidList}=PARSED;
+  const {DATA,qLabels}=PARSED;
   if(!DATA||!DATA.length){alert('No data loaded');return}
-  const rows=[['participant_id','question','keypresses','text_length','pastes','copies','flag']];
+  // Full report matching R script's keystroke_question_data format
+  const rows=[['participant_id','qid','export_id','keypresses','pastes','copies','keystroke_order','text','actual_char_count','pasted','too_short']];
   DATA.forEach(d=>{
     d.ks.forEach(k=>{
       const textLen=(k.text||'').length;
-      const flags=[];
-      if(k.pastes>0)flags.push('pasted');
-      if(textLen>k.keypresses&&textLen>0)flags.push('too_short');
-      rows.push([d.id,qLabels[k.qid]||k.qid,k.keypresses,textLen,k.pastes,k.copies,flags.join('|')||'clean']);
+      rows.push([d.id,k.qid,qLabels[k.qid]||k.qid,k.keypresses,k.pastes,k.copies,(k.order||[]).join('-'),k.text||'',textLen,k.pastes>0,textLen>k.keypresses&&textLen>0]);
     });
   });
   const csv=rows.map(r=>r.map(c=>'"'+String(c).replace(/"/g,'""')+'"').join(',')).join('\n');
