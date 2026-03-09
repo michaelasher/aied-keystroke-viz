@@ -77,18 +77,36 @@ td{color:var(--text)}
 .flag-box{background:var(--card);border:1px solid var(--border);border-radius:8px;padding:16px 24px;text-align:center}
 .flag-box .num{font-size:2rem;font-weight:700}
 .flag-box .label{font-size:.8rem;color:var(--muted)}
+.btn-confirm{background:transparent;border:1px solid var(--red);color:var(--red);border-radius:6px;padding:6px 16px;font-size:.8rem;font-weight:600;cursor:pointer;transition:all .2s}
+.btn-confirm.confirmed{background:var(--red);color:#fff}
+.review-panel{background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:16px;margin-bottom:16px;display:flex;flex-direction:column;gap:10px}
 </style>
 </head>
 <body>
+
 <header>
-<h1>Visualize Cheating Data from the Qualtrics Keystroke Tracker</h1>
-<p style="margin-top:8px;color:var(--muted)">Upload your Qualtrics survey CSV to detect and visualize potential cheating behavior</p>
+<h1>Qualtrics Keystroke Visualizer</h1>
+<p style="margin-top:10px;color:var(--muted)">
+  A companion for the tool developed by Asher, Gold, Chen &amp; Carvalho (2025) &mdash;
+  <a href="asher_et_al_keystroke_tracking_ampps.pdf"
+     target="_blank"
+     style="color:var(--cyan);text-decoration:none;border-bottom:1px solid var(--cyan)">
+    Read the paper ↗
+  </a>
+  &nbsp;&middot;&nbsp;
+  <a href="https://github.com/the-oak-lab/keystroke-tracker"
+     target="_blank"
+     style="color:var(--cyan);text-decoration:none;border-bottom:1px solid var(--cyan)">
+    Add the tracker to your Qualtrics survey ↗
+  </a>
+</p>
+<p style="margin-top:8px;font-size:.85rem;color:var(--muted)">After collecting data and tracking keystrokes, you can use this web application to flag possible cheaters. <strong style="color:var(--text)">Your data never leaves your browser</strong> — all processing happens locally on your computer.</p>
 </header>
 
 <div id="uploadArea">
 <div class="drop-zone" id="dropZone">
 <h2>📁 Upload Your CSV File</h2>
-<p>Drag and drop your Qualtrics export CSV here, or click to browse</p>
+<p>Drag and drop your Qualtrics export CSV here, or click to browse.</p>
 <input type="file" id="fileInput" accept=".csv">
 <button class="btn btn-primary" onclick="document.getElementById('fileInput').click()">Choose File</button>
 <div id="errorMsg" class="error-msg"></div>
@@ -113,20 +131,20 @@ td{color:var(--text)}
 <div id="idSelectorArea" class="container" style="padding-bottom:0"></div>
 <nav>
 <button class="active" onclick="showSection('overview',this)">Overview</button>
-<button onclick="showSection('cheaters',this)">Cheater Flagging</button>
-<button onclick="showSection('keystrokes',this)">Keystroke Behavior</button>
-<button onclick="showSection('timing',this)">Timing Analysis</button>
+<button onclick="showSection('cheaters',this)">Flagged Cheaters</button>
+<button onclick="showSection('keystrokes',this)">Keystroke Details</button>
 </nav>
 <div class="container">
+
+<!-- OVERVIEW -->
 <div id="overview" class="section active">
 <div class="grid grid-4" style="margin-bottom:24px">
 <div class="card"><h3>Participants</h3><div class="stat" id="statParticipants">0</div></div>
-<div class="card"><h3>Avg Duration</h3><div class="stat" id="avgDuration">-</div><div class="stat-sm">seconds</div></div>
-<div class="card"><h3>Questions Detected</h3><div class="stat" id="statQuestions">0</div></div>
-<div class="card"><h3>Paste Users</h3><div class="stat" id="pasteUsers">0</div><div class="stat-sm" id="pasteTotal">of 0 participants</div></div>
+<div class="card"><h3>Responses Tracked</h3><div class="stat" id="statQuestions">0</div></div>
+<div class="card"><h3>Flagged for Pasting</h3><div class="stat" id="pasteUsers">0</div><div class="stat-sm" id="pasteTotal">of 0 participants</div></div>
+<div class="card"><h3>Flagged for Short Response</h3><div class="stat" id="shortUsers">0</div><div class="stat-sm" id="shortTotal">of 0 participants</div></div>
 </div>
 <div class="grid grid-2">
-<div class="card"><h3>Keypresses per Question per Participant</h3><div class="chart-container"><canvas id="keypressPerQ"></canvas></div></div>
 <div class="card"><h3>Keypresses vs Text Length (Paste Detection)</h3><div class="chart-container"><canvas id="keypressVsLen"></canvas></div></div>
 </div>
 <div class="card" style="margin-top:20px"><h3>All Responses</h3>
@@ -134,14 +152,16 @@ td{color:var(--text)}
 </div>
 </div>
 
+<!-- FLAGGED CHEATERS -->
 <div id="cheaters" class="section">
 <div class="flag-summary" id="flagSummary"></div>
 <div class="card" style="margin-bottom:16px">
 <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
 <h3 style="margin:0">Flagged Participants</h3>
-<div style="display:flex;gap:8px">
-<button class="btn btn-primary btn-sm" onclick="exportFlagged()">📥 Export Flagged CSV</button>
-<button class="btn btn-outline btn-sm" onclick="exportFullReport()">📥 Export Full Report CSV</button>
+<div style="display:flex;gap:8px;flex-wrap:wrap">
+<button class="btn btn-primary btn-sm" onclick="openExportModal('flagged')">📥 Export Flagged CSV</button>
+<button class="btn btn-outline btn-sm" onclick="openExportModal('full')">📥 Export Full Report CSV</button>
+<button class="btn btn-outline btn-sm" style="border-color:var(--green);color:var(--green)" onclick="openExportModal('cleaned')">📥 Export Cleaned Dataset</button>
 </div>
 </div>
 <div class="scroll-x"><table id="flagTable"><thead></thead><tbody></tbody></table></div>
@@ -152,25 +172,35 @@ td{color:var(--text)}
 </div>
 </div>
 
+<!-- KEYSTROKE DETAILS -->
 <div id="keystrokes" class="section">
 <div class="participant-select" id="pSelect"></div>
 <div id="keystrokeDetail"></div>
-<div class="card" style="margin-top:20px"><h3>Typing Effort Comparison</h3><div class="chart-container-lg"><canvas id="typingEffort"></canvas></div></div>
 </div>
 
-<div id="timing" class="section">
-<div class="grid grid-2">
-<div class="card"><h3>Total Survey Duration</h3><div class="chart-container"><canvas id="durationChart"></canvas></div></div>
-<div class="card"><h3>Per-Question Timer (Auto-detected)</h3><div class="chart-container"><canvas id="perQTime"></canvas></div></div>
 </div>
 </div>
-</div>
+
+<!-- Export Options Modal -->
+<div id="exportModal" style="display:none;position:fixed;inset:0;background:#0008;z-index:999;align-items:center;justify-content:center">
+  <div style="background:var(--card);border:1px solid var(--border);border-radius:12px;padding:32px;min-width:340px;max-width:480px">
+    <h3 style="margin-bottom:16px">Export Options</h3>
+    <label style="font-size:.85rem;color:var(--muted);display:block;margin-bottom:8px">ResponseId will always be included. Optionally add a second ID column (e.g. Prolific ID):</label>
+    <select id="extraIdSelect" style="width:100%;background:var(--bg);color:var(--text);border:1px solid var(--border);border-radius:6px;padding:8px 12px;font-size:.85rem;margin-bottom:20px">
+      <option value="">— None —</option>
+    </select>
+    <div style="display:flex;gap:10px;justify-content:flex-end">
+      <button class="btn btn-outline" onclick="closeExportModal()">Cancel</button>
+      <button class="btn btn-primary" id="exportConfirmBtn">Export</button>
+    </div>
+  </div>
 </div>
 
 <script>
 const COLORS=['#3b82f6','#22c55e','#ef4444','#eab308','#a855f7','#06b6d4','#f97316','#ec4899','#14b8a6','#8b5cf6','#f43f5e','#84cc16'];
 let charts=[];
-let PARSED={};  // global state for re-render on ID change
+let PARSED={};
+let pendingExportType=null;
 
 const dropZone=document.getElementById('dropZone');
 const fileInput=document.getElementById('fileInput');
@@ -201,11 +231,9 @@ function parseCSV(text){
     const importRow=rows[2];
     const dataRows=rows.slice(3);
 
-    // Find keystroke_log column
     const ksIdx=headers.indexOf('keystroke_log');
     if(ksIdx===-1){showError('Missing required column: keystroke_log');return}
 
-    // Build QID-to-column mapping from import IDs row
     const qidToCol={};
     headers.forEach((h,i)=>{
       try{
@@ -217,15 +245,12 @@ function parseCSV(text){
       }catch(e){}
     });
 
-    // Detect ID column
     const ID_CANDIDATES=['ResponseId','prolific_id','PROLIFIC_PID','participant_id','ParticipantId','SubjectID'];
     let defaultIdCol=headers[0];
     for(const c of ID_CANDIDATES){if(headers.includes(c)){defaultIdCol=c;break}}
 
-    // Find duration column
     const durIdx=headers.indexOf('Duration (in seconds)');
 
-    // Find timer columns (any column ending in _Page Submit, _First Click, etc.)
     const timerGroups={};
     headers.forEach((h,i)=>{
       const m=h.match(/^(.+)_(First Click|Last Click|Page Submit|Click Count)$/);
@@ -265,9 +290,8 @@ function renderWithId(idCol){
   const {headers,dataRows,ksIdx,qidToCol,durIdx,timerGroups}=PARSED;
   const idIdx=headers.indexOf(idCol);
 
-  // Parse all data
   const allQids=new Set();
-  const DATA=dataRows.map(r=>{
+  const DATA=dataRows.map((r,ri)=>{
     let ks=[];
     try{
       const raw=JSON.parse(r[ksIdx]);
@@ -285,6 +309,7 @@ function renderWithId(idCol){
     }catch(e){}
     return{
       id:r[idIdx]||'?',
+      rowIdx:ri,
       duration:durIdx>=0?parseFloat(r[durIdx])||0:0,
       row:r,
       ks
@@ -293,7 +318,6 @@ function renderWithId(idCol){
 
   if(!DATA.length){showError('No valid data rows found with keystroke_log');return}
 
-  // Build ordered question list with labels
   const qidList=[...allQids];
   const qLabels={};
   qidList.forEach(qid=>{
@@ -301,7 +325,6 @@ function renderWithId(idCol){
     qLabels[qid]=col||qid;
   });
 
-  // Detect cheater flags
   DATA.forEach(d=>{
     d.flags=[];
     d.flagDetails={};
@@ -320,6 +343,8 @@ function renderWithId(idCol){
     });
     d.flags=[...new Set(d.flags)];
     d.isFlagged=d.flags.length>0;
+    if(d.verdict===undefined)d.verdict=null; // null=unreviewed, 'cheater', 'clean'
+    if(d.note===undefined)d.note='';
   });
 
   PARSED.DATA=DATA;
@@ -336,20 +361,13 @@ function renderDashboard(DATA,qidList,qLabels){
 
   const n=DATA.length;
   document.getElementById('statParticipants').textContent=n;
-  const hasDuration=DATA.some(d=>d.duration>0);
-  document.getElementById('avgDuration').textContent=hasDuration?Math.round(DATA.reduce((s,d)=>s+d.duration,0)/n):'-';
-  document.getElementById('statQuestions').textContent=qidList.length;
-  const pasteCount=DATA.filter(d=>d.ks.some(k=>k.pastes>0)).length;
+  document.getElementById('statQuestions').textContent=DATA.reduce((s,d)=>s+d.ks.length,0);
+  const pasteCount=DATA.filter(d=>d.flags.includes('pasted')).length;
+  const shortCount=DATA.filter(d=>d.flags.includes('too_short')).length;
   document.getElementById('pasteUsers').textContent=pasteCount;
   document.getElementById('pasteTotal').textContent=`of ${n} participants`;
-
-  // Keypresses per Q chart
-  const datasets=qidList.map((qid,qi)=>({
-    label:qLabels[qid],
-    data:DATA.map(d=>{const k=d.ks.find(k=>k.qid===qid);return k?k.keypresses:0}),
-    backgroundColor:COLORS[qi%COLORS.length]+'aa'
-  }));
-  charts.push(new Chart(document.getElementById('keypressPerQ'),{type:'bar',data:{labels:DATA.map(d=>d.id),datasets},options:{responsive:true,maintainAspectRatio:false,scales:{x:{ticks:{color:'#94a3b8'}},y:{title:{display:true,text:'Keypresses',color:'#94a3b8'},ticks:{color:'#94a3b8'}}},plugins:{legend:{labels:{color:'#e2e8f0'}}}}}));
+  document.getElementById('shortUsers').textContent=shortCount;
+  document.getElementById('shortTotal').textContent=`of ${n} participants`;
 
   // Scatter: keypresses vs text length
   const scatterTyped=[],scatterPaste=[];
@@ -362,10 +380,9 @@ function renderDashboard(DATA,qidList,qLabels){
     {label:'Pasted',data:scatterPaste,backgroundColor:'#3b82f6aa',pointRadius:8,pointStyle:'triangle'}
   ]},options:{responsive:true,maintainAspectRatio:false,scales:{x:{title:{display:true,text:'Text Length (chars)',color:'#94a3b8'},ticks:{color:'#94a3b8'}},y:{title:{display:true,text:'Keypresses',color:'#94a3b8'},ticks:{color:'#94a3b8'}}},plugins:{legend:{labels:{color:'#e2e8f0'}},tooltip:{callbacks:{label:ctx=>ctx.raw.label+` (${ctx.raw.x} chars, ${ctx.raw.y} keys)`}}}}}));
 
-  // Shared tooltip texts
   const flagTips={pasted:'Paste events detected — text may be copied from external sources',too_short:'Text length exceeds total keypresses — likely pasted or auto-filled',clean:'No cheating indicators detected'};
 
-  // Response table (dynamic)
+  // Response table
   const thead=document.querySelector('#responseTable thead');
   const tbody=document.querySelector('#responseTable tbody');
   let hrow='<tr><th>ID</th>';
@@ -386,7 +403,7 @@ function renderDashboard(DATA,qidList,qLabels){
     tbody.appendChild(tr);
   });
 
-  // Cheater flagging section
+  // Flag summary boxes
   const flagged=DATA.filter(d=>d.isFlagged);
   const pastedCount=DATA.filter(d=>d.flags.includes('pasted')).length;
   const tooShortCount=DATA.filter(d=>d.flags.includes('too_short')).length;
@@ -396,23 +413,13 @@ function renderDashboard(DATA,qidList,qLabels){
     <div class="flag-box"><div class="num" style="color:var(--yellow)">${tooShortCount}</div><div class="label">Too Short (chars > keypresses)</div></div>
     <div class="flag-box"><div class="num" style="color:var(--green)">${n-flagged.length}</div><div class="label">Clean</div></div>
   `;
-  const fthead=document.querySelector('#flagTable thead');
-  const ftbody=document.querySelector('#flagTable tbody');
-  fthead.innerHTML='<tr><th>ID</th><th>Flags</th><th>Details</th></tr>';
-  ftbody.innerHTML='';
-  flagged.forEach(d=>{
-    const tr=document.createElement('tr');
-    const details=[];
-    if(d.flagDetails.pasted)details.push('Pasted in: '+d.flagDetails.pasted.join(', '));
-    if(d.flagDetails.too_short)details.push('Too short in: '+d.flagDetails.too_short.join(', '));
-    tr.innerHTML=`<td><strong>${esc(d.id)}</strong></td>
-      <td>${d.flags.map(f=>`<span class="tag tag-${f==='pasted'?'pasted':'too-short'}" title="${flagTips[f]||f}">${f}</span>`).join(' ')}</td>
-      <td style="font-size:.8rem;color:var(--muted)">${esc(details.join('; '))}</td>`;
-    ftbody.appendChild(tr);
-  });
-  if(!flagged.length)ftbody.innerHTML='<tr><td colspan="3" style="text-align:center;color:var(--green)">No flagged participants 🎉</td></tr>';
 
-  // Full report table (matches R script keystroke_question_data)
+  // Flag table
+  const fthead=document.querySelector('#flagTable thead');
+  fthead.innerHTML='<tr><th>ID</th><th>Flags</th><th>Details</th><th>Status</th><th>Notes</th></tr>';
+  refreshFlagTable();
+
+  // Full report table
   const frthead=document.querySelector('#fullReportTable thead');
   const frtbody=document.querySelector('#fullReportTable tbody');
   frthead.innerHTML='<tr><th>ID</th><th>QID</th><th>Question</th><th>Keypresses</th><th>Chars</th><th>Pastes</th><th>Copies</th><th>Pasted</th><th>Too Short</th></tr>';
@@ -429,49 +436,35 @@ function renderDashboard(DATA,qidList,qLabels){
     });
   });
 
-  // Keystroke detail section
-  const pSelect=document.getElementById('pSelect');
-  pSelect.innerHTML='';
-  DATA.forEach((d,i)=>{
-    const btn=document.createElement('button');
-    btn.textContent=d.id;
-    if(i===0)btn.classList.add('active');
-    btn.onclick=()=>{pSelect.querySelectorAll('button').forEach(b=>b.classList.remove('active'));btn.classList.add('active');showKeystroke(d,qLabels)};
-    pSelect.appendChild(btn);
+  // Participant selector (flagged → confirmed on top, then flagged, then clean)
+  refreshParticipantButtons();
+  const sortedData=[...DATA].sort((a,b)=>{
+    if(b.confirmed!==a.confirmed)return b.confirmed-a.confirmed;
+    return b.isFlagged-a.isFlagged;
   });
-  if(DATA.length)showKeystroke(DATA[0],qLabels);
-
-  // Typing effort chart
-  const effortDatasets=qidList.map((qid,qi)=>({
-    label:qLabels[qid],
-    data:DATA.map(d=>{const k=d.ks.find(k=>k.qid===qid);return k?k.keypresses:0}),
-    backgroundColor:COLORS[qi%COLORS.length]+'aa'
-  }));
-  charts.push(new Chart(document.getElementById('typingEffort'),{type:'bar',data:{labels:DATA.map(d=>d.id),datasets:effortDatasets},options:{responsive:true,maintainAspectRatio:false,scales:{x:{ticks:{color:'#94a3b8'}},y:{title:{display:true,text:'Keypresses',color:'#94a3b8'},ticks:{color:'#94a3b8'}}},plugins:{legend:{labels:{color:'#e2e8f0'}}}}}));
-
-  // Timing section
-  if(hasDuration){
-    const dColors=DATA.map((_,i)=>COLORS[i%COLORS.length]+'aa');
-    charts.push(new Chart(document.getElementById('durationChart'),{type:'bar',data:{labels:DATA.map(d=>d.id),datasets:[{label:'Duration (s)',data:DATA.map(d=>d.duration),backgroundColor:dColors}]},options:{responsive:true,maintainAspectRatio:false,indexAxis:'y',scales:{x:{title:{display:true,text:'Seconds',color:'#94a3b8'},ticks:{color:'#94a3b8'}},y:{ticks:{color:'#94a3b8'}}},plugins:{legend:{display:false}}}}));
-  }
-
-  // Per-Q timer chart (auto-detected timer groups)
-  const {timerGroups,headers}=PARSED;
-  const timerNames=Object.keys(timerGroups).filter(t=>timerGroups[t]['Page Submit']!==undefined);
-  if(timerNames.length){
-    const timerDatasets=timerNames.map((t,ti)=>({
-      label:t+' (Page Submit)',
-      data:DATA.map(d=>{const idx=timerGroups[t]['Page Submit'];return parseFloat(d.row[idx])||0}),
-      backgroundColor:COLORS[ti%COLORS.length]+'aa'
-    }));
-    charts.push(new Chart(document.getElementById('perQTime'),{type:'bar',data:{labels:DATA.map(d=>d.id),datasets:timerDatasets},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{labels:{color:'#e2e8f0'}}},scales:{x:{ticks:{color:'#94a3b8'}},y:{title:{display:true,text:'Seconds',color:'#94a3b8'},ticks:{color:'#94a3b8'}}}}}));
-  }
-
+  if(sortedData.length)showKeystroke(sortedData[0],qLabels);
 }
+
+// ── Keystroke detail view ─────────────────────────────────────────────────────
 
 function showKeystroke(d,qLabels){
   const detail=document.getElementById('keystrokeDetail');
-  detail.innerHTML=d.ks.map(k=>{
+
+  const reviewPanel=d.isFlagged?`
+    <div class="review-panel">
+      <div style="display:flex;align-items:center;gap:12px">
+        <button class="btn-confirm ${d.verdict==='cheater'?'confirmed':''}" onclick="setVerdict('${esc(d.id)}','cheater')">${d.verdict==='cheater'?'✓ Confirmed Cheater':'Confirm Cheater'}</button>
+        <button class="btn-confirm ${d.verdict==='clean'?'confirmed':''}" style="${d.verdict==='clean'?'background:var(--green);color:#fff;border-color:var(--green)':'border-color:var(--green);color:var(--green)'}" onclick="setVerdict('${esc(d.id)}','clean')">${d.verdict==='clean'?'✓ Confirmed Clean':'Confirm Not Cheating'}</button>
+        <span style="font-size:.8rem;color:var(--muted)">${d.verdict==='cheater'?'Will be excluded from cleaned export':d.verdict==='clean'?'Marked as reviewed and clean':'Unreviewed'}</span>
+      </div>
+      <div>
+        <label style="font-size:.75rem;color:var(--muted);font-weight:600;text-transform:uppercase;letter-spacing:.05em;display:block;margin-bottom:4px">Notes (optional)</label>
+        <textarea id="noteBox" rows="2" style="width:100%;background:var(--card);color:var(--text);border:1px solid var(--border);border-radius:6px;padding:8px;font-size:.85rem;resize:vertical" placeholder="e.g. Pasted full code answer, keystroke count is 3 for a 200-char response...">${esc(d.note)}</textarea>
+        <button class="btn btn-outline btn-sm" style="margin-top:6px" onclick="saveNote('${esc(d.id)}')">Save Note</button>
+      </div>
+    </div>`:'';
+
+  detail.innerHTML=reviewPanel+d.ks.map(k=>{
     const label=qLabels[k.qid]||k.qid;
     const timeline=k.order.map(key=>{
       if(key==='Backspace')return`<span class="key key-backspace">⌫</span>`;
@@ -490,61 +483,194 @@ function showKeystroke(d,qLabels){
       <div class="q-label">${esc(label)}</div>
       <h3>${k.keypresses} keypresses | ${k.pastes} pastes | ${k.copies} copies | ${textLen} chars ${flags.join(' ')}</h3>
       <div class="keystroke-timeline">${timeline}</div>
+      <div style="margin-top:10px;padding-top:10px;border-top:1px solid var(--border)">
+        <div style="font-size:.75rem;color:var(--muted);margin-bottom:4px;font-weight:600;text-transform:uppercase;letter-spacing:.05em">Submitted Response</div>
+        <div style="font-size:.85rem;color:var(--text);line-height:1.6">${k.text?esc(k.text):'<em style="color:var(--muted)">No response</em>'}</div>
+      </div>
     </div>`;
   }).join('');
 }
 
-function exportFlagged(){
-  const {DATA,qLabels}=PARSED;
+// ── Review actions ────────────────────────────────────────────────────────────
+
+function setVerdict(id, verdict){
+  const d=PARSED.DATA.find(d=>d.id===id);
+  if(!d)return;
+  // clicking the same verdict again clears it back to unreviewed
+  d.verdict=d.verdict===verdict?null:verdict;
+  d.confirmed=d.verdict==='cheater'; // keep confirmed in sync for export logic
+  refreshParticipantButtons();
+  showKeystroke(d,PARSED.qLabels);
+  refreshFlagTable();
+}
+
+function saveNote(id){
+  const d=PARSED.DATA.find(d=>d.id===id);
+  if(!d)return;
+  d.note=document.getElementById('noteBox').value;
+  refreshFlagTable();
+}
+
+function refreshParticipantButtons(){
+  const pSelect=document.getElementById('pSelect');
+  const activeId=[...pSelect.querySelectorAll('button')].find(b=>b.classList.contains('active'))?.textContent;
+  pSelect.innerHTML='';
+  const sortedData=[...PARSED.DATA].sort((a,b)=>{
+    const order=v=>v==='cheater'?0:v===null?1:2;
+    return order(a.verdict)-order(b.verdict)||b.isFlagged-a.isFlagged;
+  });
+  sortedData.forEach((d,i)=>{
+    const btn=document.createElement('button');
+    btn.textContent=d.id;
+    if(d.id===activeId)btn.classList.add('active');
+    if(d.verdict==='cheater')btn.style.cssText='background:var(--red);color:#fff;border-color:var(--red)';
+    else if(d.verdict==='clean')btn.style.cssText='background:var(--green);color:#fff;border-color:var(--green)';
+    else if(d.isFlagged)btn.style.cssText='border-color:var(--red);color:var(--red)';
+    btn.onclick=()=>{
+      pSelect.querySelectorAll('button').forEach(b=>b.classList.remove('active'));
+      btn.classList.add('active');
+      showKeystroke(d,PARSED.qLabels);
+    };
+    pSelect.appendChild(btn);
+  });
+}
+
+
+function refreshFlagTable(){
+  const {DATA}=PARSED;
+  const flagTips={pasted:'Paste events detected — text may be copied from external sources',too_short:'Text length exceeds total keypresses — likely pasted or auto-filled'};
   const flagged=DATA.filter(d=>d.isFlagged);
-  if(!flagged.length){alert('No flagged participants to export');return}
-  // Match R script output: participant_id, qid, export_id, keypresses, pastes, copies, keystroke_order, text, actual_char_count, pasted, too_short, n_with_pastes, n_too_short
-  const rows=[['participant_id','qid','export_id','keypresses','pastes','copies','keystroke_order','text','actual_char_count','pasted','too_short','n_with_pastes','n_too_short']];
+  const ftbody=document.querySelector('#flagTable tbody');
+  ftbody.innerHTML='';
   flagged.forEach(d=>{
+    const tr=document.createElement('tr');
+    if(d.confirmed)tr.style.background='rgba(239,68,68,0.08)';
+    const details=[];
+    if(d.flagDetails.pasted)details.push('Pasted in: '+d.flagDetails.pasted.join(', '));
+    if(d.flagDetails.too_short)details.push('Too short in: '+d.flagDetails.too_short.join(', '));
+    tr.innerHTML=`<td><strong>${esc(d.id)}</strong></td>
+      <td>${d.flags.map(f=>`<span class="tag tag-${f==='pasted'?'pasted':'too-short'}" title="${flagTips[f]||f}">${f}</span>`).join(' ')}</td>
+      <td style="font-size:.8rem;color:var(--muted)">${esc(details.join('; '))}</td>
+      <td>${d.verdict==='cheater'?'<span class="tag" style="background:#ef444422;color:var(--red)">✓ Cheater</span>':d.verdict==='clean'?'<span class="tag" style="background:#22c55e22;color:var(--green)">✓ Clean</span>':'<span style="color:var(--muted);font-size:.8rem">—</span>'}</td>
+      <td style="font-size:.8rem;color:var(--muted);font-style:italic">${esc(d.note||'')}</td>`;
+    ftbody.appendChild(tr);
+  });
+  if(!flagged.length)ftbody.innerHTML='<tr><td colspan="5" style="text-align:center;color:var(--green)">No flagged participants 🎉</td></tr>';
+}
+
+// ── Export modal ──────────────────────────────────────────────────────────────
+
+function openExportModal(type){
+  pendingExportType=type;
+  const sel=document.getElementById('extraIdSelect');
+  sel.innerHTML='<option value="">— None —</option>';
+  PARSED.headers.forEach(h=>{
+    if(h==='ResponseId'||h==='keystroke_log')return;
+    const o=document.createElement('option');
+    o.value=h;o.textContent=h;
+    sel.appendChild(o);
+  });
+  const modal=document.getElementById('exportModal');
+  modal.style.display='flex';
+  document.getElementById('exportConfirmBtn').onclick=()=>{
+    const extraIdCol=sel.value||null;
+    closeExportModal();
+    if(pendingExportType==='flagged')exportFlagged(extraIdCol);
+    else if(pendingExportType==='cleaned')exportCleaned(extraIdCol);
+    else exportFullReport(extraIdCol);
+  };
+}
+
+function closeExportModal(){
+  document.getElementById('exportModal').style.display='none';
+}
+
+// ── Export functions ──────────────────────────────────────────────────────────
+
+function buildRows(data,qLabels,extraIdCol,flaggedOnly){
+  const {headers,dataRows}=PARSED;
+  const responseIdIdx=headers.indexOf('ResponseId');
+  const extraIdx=extraIdCol?headers.indexOf(extraIdCol):-1;
+
+  const headerRow=['ResponseId'];
+  if(extraIdCol)headerRow.push(extraIdCol);
+  headerRow.push('qid','export_id','keypresses','pastes','copies','keystroke_order','text','actual_char_count','pasted','too_short','n_with_pastes','n_too_short');
+
+  const rows=[headerRow];
+  data.forEach(d=>{
+    if(flaggedOnly&&!d.isFlagged)return;
+    const responseIdVal=responseIdIdx>=0?dataRows[d.rowIdx][responseIdIdx]:'';
+    const extraVal=extraIdx>=0?dataRows[d.rowIdx][extraIdx]:'';
     const nPastes=d.ks.filter(k=>k.pastes>0).length;
     const nTooShort=d.ks.filter(k=>(k.text||'').length>k.keypresses&&(k.text||'').length>0).length;
     d.ks.forEach(k=>{
       const textLen=(k.text||'').length;
       const pasted=k.pastes>0;
       const tooShort=textLen>k.keypresses&&textLen>0;
-      if(pasted||tooShort){
-        rows.push([d.id,k.qid,qLabels[k.qid]||k.qid,k.keypresses,k.pastes,k.copies,(k.order||[]).join('-'),k.text||'',textLen,pasted,tooShort,nPastes,nTooShort]);
-      }
+      if(flaggedOnly&&!pasted&&!tooShort)return;
+      const row=[responseIdVal];
+      if(extraIdCol)row.push(extraVal);
+      row.push(k.qid,qLabels[k.qid]||k.qid,k.keypresses,k.pastes,k.copies,(k.order||[]).join('-'),k.text||'',textLen,pasted,tooShort,nPastes,nTooShort);
+      rows.push(row);
     });
   });
+  return rows;
+}
+
+function exportFlagged(extraIdCol){
+  const {DATA,qLabels}=PARSED;
+  const flagged=DATA.filter(d=>d.isFlagged);
+  if(!flagged.length){alert('No flagged participants to export');return}
+  downloadCSV(buildRows(DATA,qLabels,extraIdCol,true),'possible_cheaters.csv');
+}
+
+function exportFullReport(extraIdCol){
+  const {DATA,qLabels}=PARSED;
+  if(!DATA||!DATA.length){alert('No data loaded');return}
+  downloadCSV(buildRows(DATA,qLabels,extraIdCol,false),'keystroke_full_report.csv');
+}
+
+function exportCleaned(extraIdCol){
+  const {DATA,headers,dataRows}=PARSED;
+  const confirmed=DATA.filter(d=>d.verdict==='cheater');
+  if(!confirmed.length){alert('No confirmed cheaters to exclude. Use the Keystroke Details tab to confirm cheaters first.');return}
+  const confirmedIds=new Set(confirmed.map(d=>d.id));
+  const currentIdCol=document.getElementById('idColSelect').value;
+  const idIdx=headers.indexOf(currentIdCol);
+
+  // Build header row without keystroke_log column
+  const keepIndices=headers.map((_,i)=>i).filter(i=>i!==PARSED.ksIdx);
+  const headerRow=keepIndices.map(i=>headers[i]);
+  const rows=[headerRow];
+  dataRows.forEach((r,ri)=>{
+    const id=r[idIdx];
+    if(confirmedIds.has(id))return;
+    rows.push(keepIndices.map(i=>r[i]));
+  });
+  downloadCSV(rows,'cleaned_dataset.csv');
+}
+
+function downloadCSV(rows,filename){
   const csv=rows.map(r=>r.map(c=>'"'+String(c).replace(/"/g,'""')+'"').join(',')).join('\n');
   const blob=new Blob([csv],{type:'text/csv'});
   const url=URL.createObjectURL(blob);
   const a=document.createElement('a');
-  a.href=url;a.download='possible_cheaters.csv';a.click();
+  a.href=url;a.download=filename;a.click();
   URL.revokeObjectURL(url);
 }
+
+// ── Navigation ────────────────────────────────────────────────────────────────
 
 function showSection(id,btn){
   document.querySelectorAll('.section').forEach(s=>s.classList.remove('active'));
   document.querySelectorAll('nav button').forEach(b=>b.classList.remove('active'));
   document.getElementById(id).classList.add('active');
-  if(btn)btn.classList.add('active');
+  const activeBtn=btn||[...document.querySelectorAll('nav button')]
+    .find(b=>b.getAttribute('onclick')?.includes(`'${id}'`));
+  if(activeBtn)activeBtn.classList.add('active');
 }
 
-function exportFullReport(){
-  const {DATA,qLabels}=PARSED;
-  if(!DATA||!DATA.length){alert('No data loaded');return}
-  // Full report matching R script's keystroke_question_data format
-  const rows=[['participant_id','qid','export_id','keypresses','pastes','copies','keystroke_order','text','actual_char_count','pasted','too_short']];
-  DATA.forEach(d=>{
-    d.ks.forEach(k=>{
-      const textLen=(k.text||'').length;
-      rows.push([d.id,k.qid,qLabels[k.qid]||k.qid,k.keypresses,k.pastes,k.copies,(k.order||[]).join('-'),k.text||'',textLen,k.pastes>0,textLen>k.keypresses&&textLen>0]);
-    });
-  });
-  const csv=rows.map(r=>r.map(c=>'"'+String(c).replace(/"/g,'""')+'"').join(',')).join('\n');
-  const blob=new Blob([csv],{type:'text/csv'});
-  const url=URL.createObjectURL(blob);
-  const a=document.createElement('a');
-  a.href=url;a.download='keystroke_full_report.csv';a.click();
-  URL.revokeObjectURL(url);
-}
+// ── Sample data ───────────────────────────────────────────────────────────────
 
 async function fetchSample(){
   const r=await fetch('sample.csv');
