@@ -83,6 +83,16 @@ td{color:var(--text)}
 .btn-confirm{background:transparent;border:1px solid var(--red);color:var(--red);border-radius:6px;padding:6px 16px;font-size:.8rem;font-weight:600;cursor:pointer;transition:all .2s}
 .btn-confirm.confirmed{background:var(--red);color:#fff}
 .review-panel{background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:16px;margin-bottom:16px;display:flex;flex-direction:column;gap:10px}
+@media(prefers-color-scheme:light){
+  :root{--bg:#f1f5f9;--card:#ffffff;--border:#cbd5e1;--text:#0f172a;--muted:#64748b;--accent:#2563eb;--green:#16a34a;--yellow:#ca8a04;--red:#dc2626;--purple:#9333ea;--cyan:#0891b2}
+  header{background:linear-gradient(135deg,#e2e8f0,#f1f5f9)}
+  .card{box-shadow:0 1px 4px rgba(0,0,0,.07)}
+  .review-panel{background:var(--card)}
+  .participant-select button{background:var(--card)}
+  .key{background:#cbd5e1}
+  .key-space{background:#e2e8f0}
+  .sample-info code{background:#e2e8f0}
+}
 </style>
 </head>
 <body>
