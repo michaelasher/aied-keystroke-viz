@@ -113,13 +113,14 @@ td{color:var(--text)}
     Add the tracker to your Qualtrics survey ↗
   </a>
 </p>
-<p style="margin-top:8px;font-size:.85rem;color:var(--muted)">After collecting data and tracking keystrokes, use this web application to upload your data, review flagged participants, and export a cleaned dataset. <strong style="color:var(--text)">Your data never leaves your browser</strong> — all processing happens locally on your computer.</p>
+<p style="margin-top:8px;font-size:.85rem;color:var(--muted)">After collecting data and tracking keystrokes, use this web application to upload your data, review flagged participants, and export a cleaned dataset.</p>
 </header>
 
 <div id="uploadArea">
 <div class="drop-zone" id="dropZone">
 <h2>📁 Upload Your CSV File</h2>
 <p>Drag and drop your Qualtrics export CSV here, or click to browse.</p>
+<p style="margin-top:10px;font-size:.8rem;color:var(--muted)">🔒 <strong>Your data never leaves your browser</strong> — all processing happens locally on your computer.</p>
 <input type="file" id="fileInput" accept=".csv">
 <button class="btn btn-primary" onclick="document.getElementById('fileInput').click()">Choose File</button>
 <div id="errorMsg" class="error-msg"></div>
