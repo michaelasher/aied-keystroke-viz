@@ -86,6 +86,9 @@ td{color:var(--text)}
 .id-link{background:none;border:none;color:var(--accent);cursor:pointer;font-size:inherit;font-weight:600;padding:0;text-decoration:underline;text-underline-offset:3px}
 .id-link:hover{color:var(--cyan)}
 .verdict-select{background:var(--bg);border:1px solid var(--border);border-radius:6px;padding:3px 8px;font-size:.8rem;font-weight:600;cursor:pointer;transition:all .2s}
+.pf-btn{padding:4px 12px;border:1px solid var(--border);background:transparent;color:var(--muted);border-radius:20px;cursor:pointer;font-size:.75rem;font-weight:600;transition:all .2s}
+.pf-btn:hover:not(.active){border-color:var(--accent);color:var(--accent)}
+.pf-btn.active{background:var(--accent);color:#fff;border-color:var(--accent)}
 .note-input{background:transparent;border:none;border-bottom:1px solid transparent;color:var(--text);font-size:.8rem;font-style:italic;width:100%;padding:2px 4px;outline:none;min-width:120px}
 .note-input:hover{border-bottom-color:var(--border)}
 .note-input:focus{border-bottom-color:var(--accent);font-style:normal}
@@ -174,6 +177,13 @@ td{color:var(--text)}
 
 <!-- REVIEW KEYSTROKES -->
 <div id="keystrokes" class="section">
+<div style="display:flex;align-items:center;gap:8px;margin-bottom:12px;flex-wrap:wrap">
+  <span style="color:var(--muted);font-size:.75rem;font-weight:600;text-transform:uppercase;letter-spacing:.05em">Show:</span>
+  <button id="pf-flagged" class="pf-btn active" onclick="setPFilter('flagged')">Flagged Only</button>
+  <button id="pf-unreviewed" class="pf-btn" onclick="setPFilter('unreviewed')">Unreviewed</button>
+  <button id="pf-all" class="pf-btn" onclick="setPFilter('all')">All Participants</button>
+  <span id="pFilterCount" style="color:var(--muted);font-size:.8rem"></span>
+</div>
 <div class="participant-select" id="pSelect"></div>
 <div id="keystrokeDetail"></div>
 </div>
@@ -226,6 +236,7 @@ const COLORS=['#3b82f6','#22c55e','#ef4444','#eab308','#a855f7','#06b6d4','#f973
 let charts=[];
 let PARSED={};
 let pendingExportType=null;
+let pFilter='flagged';
 
 const dropZone=document.getElementById('dropZone');
 const fileInput=document.getElementById('fileInput');
@@ -526,15 +537,11 @@ function renderDashboard(DATA,qidList,qLabels){
 
   // Participant selector
   refreshParticipantButtons();
-  const sortedData=[...DATA].sort((a,b)=>{
-    const order=v=>v==='cheater'?0:v===null?1:2;
-    return order(a.verdict)-order(b.verdict)||b.isFlagged-a.isFlagged;
-  });
-  if(sortedData.length){
-    const firstBtn=[...document.querySelectorAll('#pSelect button')]
-      .find(b=>b.textContent===sortedData[0].id);
-    if(firstBtn){firstBtn.classList.add('active');firstBtn.style.cssText=btnStyle(sortedData[0],true);}
-    showKeystroke(sortedData[0],qLabels);
+  const firstBtn=document.querySelector('#pSelect button');
+  if(firstBtn){
+    firstBtn.classList.add('active');
+    const firstD=PARSED.DATA.find(d=>d.id===firstBtn.textContent);
+    if(firstD){firstBtn.style.cssText=btnStyle(firstD,true);showKeystroke(firstD,qLabels);}
   }
 }
 
@@ -624,6 +631,8 @@ function goToParticipant(id){
   const navBtn=[...document.querySelectorAll('nav button')].find(b=>b.getAttribute('onclick')?.includes("'keystrokes'"));
   showSection('keystrokes',navBtn);
   window.scrollTo({top:0,behavior:'smooth'});
+  if(pFilter!=='flagged'&&pFilter!=='all')setPFilter('flagged');
+  else refreshParticipantButtons();
   const pSelect=document.getElementById('pSelect');
   pSelect.querySelectorAll('button').forEach(b=>{
     const bd=PARSED.DATA.find(d=>d.id===b.textContent);
@@ -642,6 +651,14 @@ function btnStyle(d,active){
   return'';
 }
 
+function setPFilter(f){
+  pFilter=f;
+  document.querySelectorAll('.pf-btn').forEach(b=>b.classList.remove('active'));
+  const btn=document.getElementById('pf-'+f);
+  if(btn)btn.classList.add('active');
+  refreshParticipantButtons();
+}
+
 function refreshParticipantButtons(){
   const pSelect=document.getElementById('pSelect');
   const activeId=[...pSelect.querySelectorAll('button')].find(b=>b.classList.contains('active'))?.textContent;
@@ -649,7 +666,16 @@ function refreshParticipantButtons(){
   const sortedData=[...PARSED.DATA].sort((a,b)=>{
     const order=v=>v==='cheater'?0:v===null?1:2;
     return order(a.verdict)-order(b.verdict)||b.isFlagged-a.isFlagged;
+  }).filter(d=>{
+    if(pFilter==='flagged')return d.isFlagged;
+    if(pFilter==='unreviewed')return d.isFlagged&&d.verdict===null;
+    return true;
   });
+  const countEl=document.getElementById('pFilterCount');
+  if(countEl){
+    const total=PARSED.DATA.length;
+    countEl.textContent=sortedData.length===total?`${total} participants`:`${sortedData.length} of ${total} participants`;
+  }
   sortedData.forEach(d=>{
     const btn=document.createElement('button');
     btn.textContent=d.id;
